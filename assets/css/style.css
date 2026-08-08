@@ -207,20 +207,20 @@ a:hover { color: var(--text); text-decoration: underline; }
 }
 
 /* ---------- code window header ---------- */
-.article-body .highlighter-rouge {
+.article-body div.highlighter-rouge {
   margin: 0 0 26px;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
 }
-.article-body .highlighter-rouge .highlight {
+.article-body div.highlighter-rouge .highlight {
   background: transparent;
   border: none;
   border-radius: 0;
   margin: 0;
 }
-.article-body .highlighter-rouge pre {
+.article-body div.highlighter-rouge pre {
   background: transparent;
   border: none;
   border-radius: 0;
