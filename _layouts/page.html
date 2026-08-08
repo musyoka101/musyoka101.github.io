@@ -1,0 +1,21 @@
+---
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+{% include head.html %}
+</head>
+<body>
+{% include site-header.html %}
+<main class="container article">
+  <header class="article-header">
+    <h1>{{ page.title }}</h1>
+  </header>
+  <article class="article-body">
+    {{ content }}
+  </article>
+  <a class="back-link" href="/">&larr; Back to all writeups</a>
+</main>
+{% include site-footer.html %}
+</body>
+</html>
