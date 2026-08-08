@@ -206,6 +206,54 @@ a:hover { color: var(--text); text-decoration: underline; }
   line-height: 1.6;
 }
 
+/* ---------- code window header ---------- */
+.article-body .highlighter-rouge {
+  margin: 0 0 26px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.article-body .highlighter-rouge .highlight {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+}
+.article-body .highlighter-rouge pre {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+}
+.code-window {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: #262b33;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+}
+.code-window .dots { display: flex; gap: 6px; }
+.code-window .dot { width: 10px; height: 10px; border-radius: 50%; }
+.code-window .dot.r { background: #ff5f56; }
+.code-window .dot.y { background: #ffbd2e; }
+.code-window .dot.g { background: #27c93f; }
+.code-window .lang { color: var(--accent); }
+.code-window .code-copy {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 2px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.code-window .code-copy:hover { color: var(--accent); border-color: var(--accent); }
+
 /* ---------- rouge syntax colors (ikuamike green prism palette) ---------- */
 .highlight .s, .highlight .s1, .highlight .s2, .highlight .sb, .highlight .sc,
 .highlight .sd, .highlight .se, .highlight .sh, .highlight .si, .highlight .sx { color: #78e2a0; }

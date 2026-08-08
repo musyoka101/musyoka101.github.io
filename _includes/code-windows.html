@@ -1,0 +1,45 @@
+<script>
+  (function () {
+    function addWindow(w) {
+      if (w.querySelector('.code-window')) return;
+      var m = (w.className || '').match(/language-([\w-]+)/);
+      var lang = m ? m[1] : '';
+      var pre = w.querySelector('pre');
+      var bar = document.createElement('div');
+      bar.className = 'code-window';
+      var dots = '<span class="dots"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i></span>';
+      var label = lang ? '<span class="lang">' + lang + '</span>' : '';
+      bar.innerHTML = dots + label + '<button class="code-copy" type="button">copy</button>';
+      w.prepend(bar);
+      var btn = bar.querySelector('.code-copy');
+      btn.addEventListener('click', function () {
+        var code = pre.innerText;
+        var done = function () {
+          btn.textContent = 'copied';
+          setTimeout(function () { btn.textContent = 'copy'; }, 1600);
+        };
+        var fallback = function () {
+          var ta = document.createElement('textarea');
+          ta.value = code;
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); done(); } catch (e) {}
+          document.body.removeChild(ta);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(done).catch(fallback);
+        } else {
+          fallback();
+        }
+      });
+    }
+    function init() {
+      document.querySelectorAll('.highlighter-rouge').forEach(addWindow);
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  })();
+</script>
