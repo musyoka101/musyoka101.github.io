@@ -20,13 +20,21 @@ The results are as follows
 80/tcp open  http
 ```
 
-Only a single web service exposed which is always a good start. The application is split by host header. The command i used was
+Only a single web service exposed which is always a good start. Browsing to it we get a supplier portal for an accounts-payable platform with open registration and an invoice upload flow. The /how-invoices-work page documented the upload format, an xlsx workbook containing a remit/ubl.xml file. That detail mattered because xlsx files are just zip archives. If the application trusted and parsed an XML part inside the archive, the attack surface wasn't the spreadsheet, it was the XML parser behind the upload feature.
+
+The application felt like it was split by host header so i ran a vhost fuzz with ffuf. The command i used was
 ```bash
-curl -H "Host: remit.local" http://10.100.97.14/
-curl -H "Host: review.remit.local" http://10.100.97.14/
+ffuf -u http://10.100.97.14/ -H "Host: FUZZ.remit.local" \
+  -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt \
+  -fs 0,138 -t 30
+```
+Output:
+```
+[Status: 200, Size: 1573, Words: 194, Lines: 37]
+    * FUZZ: review
 ```
 
-remit.local gives us open registration and an invoice upload flow while review.remit.local shows a login page for the internal review console. The /how-invoices-work page documented the upload format which was an xlsx workbook containing a remit/ubl.xml file. That detail mattered because xlsx files are just zip archives. If the application trusted and parsed an XML part inside the archive, the attack surface wasn't the spreadsheet, it was the XML parser behind the upload feature.
+review.remit.local turned out to be the internal finance review console with a login page, the internal side of the platform. The reviewer console will matter a lot later in the chain. For now let's focus on the supplier upload.
 
 A first test workbook containing a basic DOCTYPE declaration was rejected. The command i used was
 ```bash
