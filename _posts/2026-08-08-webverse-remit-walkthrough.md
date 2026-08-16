@@ -281,4 +281,4 @@ WEBVERSE{00xml_……………….._1nj3ct}
 
 And the box is pretty much done. No single bug carried the whole exploit by itself. The compromise worked because each vulnerability exposed exactly what the next step needed. The XXE gave file read. File read gave source. Source revealed mass assignment. Mass assignment opened the review console. The review console exposed deserialization. Deserialization reached a file write gadget. File write became RCE because the target path was inside the web root. Small, locally scoped mistakes become critical when they line up across trust boundaries.
 
-If you liked the walkthrough clap for me down below and follow me so that you don't miss any upcoming ones.
+If you liked the walkthrough give it a clap below and follow me so that you don't miss any upcoming ones.

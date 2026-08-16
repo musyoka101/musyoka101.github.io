@@ -290,4 +290,4 @@ And the box is pretty much done. The whole chain from a low privilege web shell 
 
 By the way, a note on the intended method. The box was actually designed to be solved by logging into the FreePBX UCP portal in a real browser with the leaked credentials FreePBXUCPTemplateCreator / St4yN0t1c3d_2026 and reading the same automation key from a voicemail widget's caller-id field. The UCP login flow is JS/AJAX driven and plain curl login posts never authenticate which is why it needs a browser. The reason i went with the backup route instead is that it's fully reproducible from the shell without ever touching the browser, no guessing and honestly way cooler. Both routes converge on the same voicemail message and the same root command injection on the automation service.
 
-If you liked the walkthrough clap for me down below and follow me so that you don't miss any upcoming ones.
+If you liked the walkthrough give it a clap below and follow me so that you don't miss any upcoming ones.
