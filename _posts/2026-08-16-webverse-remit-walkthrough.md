@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Webverse Pro — Remit Walkthrough"
-date: 2026-08-08
+date: 2026-08-16
 categories: [webverse, writeup, xxe, deserialization]
 tags: [ctf, web, walkthrough, xxe, php, object-injection, mass-assignment, writeup]
 ---
