@@ -10,14 +10,14 @@ tags: [thm, ctf, walkthrough, canbus, car-hacking, socketcand, protocol-reversin
 
 Hello guys and welcome back to another walkthrough. This time we'll be tackling PhantomFob from TryHackMe, a car hacking challenge built around a simulated vehicle CAN bus. The target exposes a small web HMI with four fob buttons (lock, horn, arm and disarm the immobiliser), a socketcand CAN bridge and an SSH service with no credentials. The catch is that the challenge asks us to unlock the car, and the fob has no unlock button at all, so the frame has to be forged on the bus. We start by enumerating the HMI, then connect to the CAN bus on port 29536 with python-can and map the traffic. Pressing buttons reveals the fob command frame and after collecting a corpus we find it is protected by a public XOR checksum instead of any kind of secret, which means the nonce byte can be derived instead of guessed. We forge an immobiliser disarm frame to prove the construction, sweep the command byte for the magic unlock value and finally watch the door bit flip and the flag drop on the web dashboard. Let's jump in.
 
-I begun by running an nmap scan on the box using the command
+I began by running an nmap scan on the box using the command
 ```bash
 nmap -sV -p- 10.49.137.191
 ```
 The results are as follows
 ```
 22/tcp    open  ssh        OpenSSH
-8080/tcp  open  http       Werkzeug httpd
+8080/tcp  open  http       Werkzeug/3.1.8 Python/3.12.3
 29536/tcp open  unknown
 ```
 
@@ -31,7 +31,7 @@ curl -s -X POST http://10.49.137.191:8080/press \
 The dashboard also streams its state over server sent events on /events. The keys are locked, immob, horn, speed, turn, fps, seen_ids and flag. The flag field is sitting there as null which tells us exactly what the end state looks like
 ```bash
 curl -s http://10.49.137.191:8080/events
-data: {"locked":true,"immob":1,"horn":0,"speed":0,"turn":0,"fps":272,"seen_ids":12,"flag":null}
+data: {"locked": true, "immob": true, "horn": false, "speed": 20.63, "turn": 0, "fps": 277, "seen_ids": 12, "flag": null}
 ```
 SSH is publickey only and we have no credentials so the box itself is a dead end. This challenge is meant to be solved on the wire.
 
@@ -94,9 +94,9 @@ b0 = b6 ^ b2 ^ ctr ^ cmd ^ 0x97
 So b0 is not random at all, it is derived from the counter. The only remaining unknowns are b2 and b6. To characterise them i wrote a rapid press probe that hammers a button several times inside a couple of seconds and tags every captured frame with its bus timestamp
 ```
 press 0.00s  f2 13 7b 1b ba a0 86 38
-press 0.15s  f3 13 7b 1b ba a1 86 38
-press 0.31s  f0 13 7b 1b ba a2 86 38
-press 1.20s  c0 13 3d 1b ba a3 f1 38   <- bucket changed: b2 7b->3d, b6 86->f1
+press 0.45s  f3 13 7b 1b ba a1 86 38
+press 0.90s  f0 13 7b 1b ba a2 86 38
+press 1.55s  c0 13 3d 1b ba a3 f1 38   <- bucket changed: b2 7b->3d, b6 86->f1
 ```
 What that shows is that b2 and b6 are per bucket constants with a bucket length of about 1.1 seconds, and they change together at the bucket boundary, while b0 tracks the counter inside the bucket and the counter itself is a strict +1. The remaining bytes b1, b3 and b4 never move at all. And the beautiful part is that b2 and b6 are observable on the bus every time a genuine frame is sent. There is nothing to predict.
 
@@ -114,11 +114,13 @@ def solve_b0(b2, b6, ctr, cmd):
 
 To prove the construction end to end i used the immobiliser as an oracle. Arm it with a genuine press so immob = 1, then forge an IMMOB_DISARM and watch the status frame
 ```
-round 0: gap= 38.2ms genuine=a713571bbab1a87e forged=a413571bbab2a87e immob 1->0   *** ACCEPTED ***
-round 1: gap= 44.9ms genuine=... forged=... immob 1->0
+round 0: gap=-12.4ms  genuine=15134e1bbaab1077 forged=1b134e1bbaac107e  immob 1->0
+round 1: gap=-10.1ms  genuine=0013711bbaac3d77 forged=0813711bbaad3d7e  immob 1->0
+round 2: gap= -9.7ms  genuine=9a13071bbaadd077 forged=9013071bbaaed07e  immob 1->0
 ...
+[*] accepted 0/8     <- verdict counter bug: every round above flipped immob 1->0
 ```
-Eight out of eight rounds flipped the immobiliser back to zero. Forging works. Now the only thing left is finding the command byte that opens the door.
+The negative gap is just clock skew between our machine and the server side bus timestamps, and the accepted counter at the end is a broken heuristic in my own script. The rounds above it are what matter, every single forged DISARM flipped the immobiliser back to zero. Forging works. Now the only thing left is finding the command byte that opens the door.
 
 An unlock sweep across the command byte space gives us the answer
 ```
@@ -131,8 +133,10 @@ One honest correction here. My first sweep credited the unlock to command 0x19 a
 And with that the vehicle reported the door opening and the dashboard handed over the flag
 ```bash
 curl -s http://10.49.137.191:8080/events
-data: {"locked":false,"immob":0,"horn":0,"speed":0,"turn":0,"fps":272,"seen_ids":12,"flag":"THM{C4r_H4cking_……………….._c00l}"}
+data: {"locked": false, "immob": true, "horn": false, "speed": 99.71, "turn": 0, "fps": 276, "seen_ids": 14, "flag": "THM{C4r_H4cking_…_c00l}"}
 ```
+
+Notice the immobiliser is still armed in that capture. The unlock only moves the door bit and the flag releases on the door transition, it has nothing to do with the immobiliser state.
 
 And the box is pretty much done. No exploit framework, no shell, just reading a bus and doing some maths on the bytes. The thing i keep thinking about is how many times this challenge almost convinced me the frame was protected by a secret key. Every rejection had a mundane explanation, my early attempts copied b0 from a genuine frame while changing the counter or the command, which broke the b0 to counter relation and the checksum at the same time. The earlier instance's keyed-authenticator conclusion came from a sweep that varied only the last byte while holding everything else at genuine values, which structurally cannot find a checksum living in a different byte. The lesson i'm carrying forward is simple. When a frame is rejected, vary the field model, not just the field value. And on slow oracles like a 5 Hz status frame, confirm one candidate per run with a settle window, because a fast sweep across a lagging oracle manufactures false positives.
 
