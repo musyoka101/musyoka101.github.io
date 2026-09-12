@@ -35,15 +35,25 @@ data: {"locked":true,"immob":1,"horn":0,"speed":0,"turn":0,"fps":272,"seen_ids":
 ```
 SSH is publickey only and we have no credentials so the box itself is a dead end. This challenge is meant to be solved on the wire.
 
-Port 29536 is a socketcand CAN bridge. If you have never touched one, socketcand lets you speak raw CAN over TCP. You connect and it greets you with `< hi >`, then you can open the bus with `< open can0 >` and stream frames in rawmode. Instead of hand rolling the protocol i used python-can 4.6.1's socketcand backend in a venv which gives us a proper bus object, a decoupled notifier for receiving and a logger that writes replayable candump artifacts. The command i used to census the bus was
+Port 29536 is a socketcand CAN bridge. If you have never touched one, socketcand lets you speak raw CAN over TCP. You connect and it greets you with `< hi >`, then you open the bus with `< open can0 >` and get `< ok >`, switch it to rawmode and it streams frames as `< frame <ID> <ts> <HEXDATA> >`. Transmitting is just `< send <id> <dlc> <bytes> >`. Instead of hand rolling all of that i used python-can 4.6.1's socketcand backend in a venv which gives us a proper bus object, a decoupled notifier for receiving and a logger that writes replayable candump artifacts. The command i used to connect was
 ```python
 import can
 
 bus = can.Bus(interface="socketcand", host="10.49.137.191",
               port=29536, channel="can0")
 ```
+A small census tool around that connection gives us the full bus inventory
+```
+[+] census 5s
+  0x328   4.9/s  [door][immob][horn] A5 00 00 00 00   STATUS
+  0x369  19.9/s  02 00 00 00 00 00 00 00
+  0x1E2  19.9/s  08 a4 16 00 00 00 00 00
+  0x5ED  96.4/s  high-rate telemetry
+  0x2E8  48.1/s  telemetry
+  ... 12 IDs total, 272 fps
+```
 
-The bus carries 12 arbitration IDs at around 272 frames per second. Most of it is telemetry noise but two IDs matter. The status frame 0x328 updates at about 5 Hz and looks like this
+Most of it is telemetry noise but two IDs matter. The status frame 0x328 updates at about 5 Hz and looks like this
 ```
 0x328  [door][immob][horn] A5 00 00 00 00
 ```
@@ -81,7 +91,14 @@ That is a plain XOR checksum. There is no MAC, no key, no secret. Rearranged one
 ```
 b0 = b6 ^ b2 ^ ctr ^ cmd ^ 0x97
 ```
-So b0 is not random at all, it is derived from the counter. The only remaining unknowns are b2 and b6. A rapid press probe showed that those two are per bucket constants with a bucket length of about 1.1 seconds, and both change together at the bucket boundary. And the beautiful part is that they are observable on the bus every time a genuine frame is sent. There is nothing to predict.
+So b0 is not random at all, it is derived from the counter. The only remaining unknowns are b2 and b6. To characterise them i wrote a rapid press probe that hammers a button several times inside a couple of seconds and tags every captured frame with its bus timestamp
+```
+press 0.00s  f2 13 7b 1b ba a0 86 38
+press 0.15s  f3 13 7b 1b ba a1 86 38
+press 0.31s  f0 13 7b 1b ba a2 86 38
+press 1.20s  c0 13 3d 1b ba a3 f1 38   <- bucket changed: b2 7b->3d, b6 86->f1
+```
+What that shows is that b2 and b6 are per bucket constants with a bucket length of about 1.1 seconds, and they change together at the bucket boundary, while b0 tracks the counter inside the bucket and the counter itself is a strict +1. The remaining bytes b1, b3 and b4 never move at all. And the beautiful part is that b2 and b6 are observable on the bus every time a genuine frame is sent. There is nothing to predict.
 
 The working recipe is
 1. Press any button and capture the genuine frame g, which gives us the current bucket's b2 and b6 and the current counter
