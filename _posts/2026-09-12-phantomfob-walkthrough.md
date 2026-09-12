@@ -116,8 +116,8 @@ def solve_b0(b2, b6, ctr, cmd):
 To prove the construction end to end i used the immobiliser as an oracle. Arm it with a genuine press so immob = 1, then forge an IMMOB_DISARM and watch the status frame
 ```
 # representative output from run c3f4b7c36683
-round 0: gap=-12.4ms  genuine=8b13e91bba0c8e77 forged=8313e91bba0d8e7e  immob 1->0
-round 1: gap=-10.1ms  genuine=8013ef1bba0f8077 forged=9613ef1bba10807e  immob 1->0
+round 0: gap=-1322.6ms  genuine=8b13e91bba0c8e77 forged=8313e91bba0d8e7e  immob 1->0
+round 1: gap=-1609.9ms  genuine=8013ef1bba0f8077 forged=9613ef1bba10807e  immob 1->0
 ...
 [*] accepted 0/8     <- verdict counter bug: every round above flipped immob 1->0
 ```
