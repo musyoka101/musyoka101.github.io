@@ -27,7 +27,7 @@ tags: [android, reverse-engineering, apk, jni, arm, radare2, qemu, crackme]
 
 ## 1. Scope & Authorization
 
-This is a **purpose-built reverse-engineering training target** (a crackme), not production software. It was supplied in a controlled test directory (`/home/kali/Desktop/boxes/test/`). The objective is capability validation: prove that a full two-layer Android reversal — decompilation, native disassembly, algorithm reconstruction, inversion, and independent execution-based verification — is achievable with the available toolchain.
+This is a **purpose-built reverse-engineering training target** (a crackme), not production software. It is a public training artifact, a copy of which is available at [LoopAndLoop.apk](https://github.com/kiyadesu/android-reversing-challenges/blob/master/apks/LoopAndLoop.apk). The objective is capability validation: prove that a full two-layer Android reversal — decompilation, native disassembly, algorithm reconstruction, inversion, and independent execution-based verification — is achievable with the available toolchain.
 
 No live/production system was touched. The original artifact was never modified; all patches were applied to **copies**.
 
@@ -135,8 +135,7 @@ Note: **no `liblog` symbols are actually used** — `liblog.so` is a link-time a
 ### 4.1 Decompile
 
 ```bash
-jadx --no-res -d /home/kali/Desktop/boxes/test/_reversed/jadx_src \
-     /home/kali/Desktop/boxes/test/LoopAndLoop.apk
+jadx --no-res -d "$PWD/jadx_src" LoopAndLoop.apk
 ```
 
 Result: 536 Java files. The interesting one is `MainActivity`.
@@ -949,7 +948,7 @@ apksigner verify --print-certs LoopAndLoop.apk
 unzip -l LoopAndLoop.apk | grep -E 'lib/|\.dex'
 
 # decompile
-jadx --no-res -d /abs/path/jadx_src /abs/path/LoopAndLoop.apk
+jadx --no-res -d "$PWD/jadx_src" LoopAndLoop.apk
 
 # native recon
 r2 -q -e scr.color=0 -c "aa; afl"  lib/armeabi/liblhm.so
@@ -960,7 +959,7 @@ r2 -q -e scr.color=0 -c "aa; s 0xf18; pdf" lib/armeabi/liblhm.so   # stringFromJ
 
 ### 10.3 Artifacts
 
-All under `/home/kali/Desktop/boxes/test/_reversed/`:
+All under the working directory:
 
 ```
 jadx_src/            decompiled Java (536 files, incl. MainActivity.java)
@@ -976,7 +975,7 @@ harness3.c           load-only isolation test
 patch_init.py        .init_array patcher
 ```
 
-Original APK at `/home/kali/Desktop/boxes/test/LoopAndLoop.apk` — **never modified**.
+Original APK: [LoopAndLoop.apk](https://github.com/kiyadesu/android-reversing-challenges/blob/master/apks/LoopAndLoop.apk) — **never modified**.
 
 ---
 
