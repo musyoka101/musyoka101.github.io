@@ -6,8 +6,6 @@ categories: [tryhackme, writeup, freepbx, command-injection]
 tags: [thm, ctf, walkthrough, freepbx, asterisk, graphql, command-injection]
 ---
 
-# TryHackMe — Infinity Pool Walkthrough
-
 Hello guys and welcome back to another walkthrough. This time we'll be tackling Infinity Pool from TryHackMe, an intermediate room themed around a surveillance-luxe hotel called Byte Lotus with the tagline "Stay Noticed". The box starts off as a simple command injection on a hidden staff network check tool which drops us into the box as the web user. From there most of the interesting stuff is running on loopback. There's a telephony stack running FreePBX 16.0.45 with a voicemail that holds the key to the final service and a root-running automation service gated by a bearer token. The box was designed to be solved by logging into the FreePBX user portal with a real browser and reading the token from a voicemail widget's caller-id field. In this walkthrough we'll be skipping the browser entirely and using the much cooler unintended route, a FreePBX loopback admin authentication bypass that lets any module ajax command run as an admin without a session. Using the bypass we'll mint a GraphQL token with backup scope, create and download a full FreePBX backup which includes the voicemail file, grab the automation bearer key from it, feed it to the root-running automation service and finally pwn the box. Let's jump in.
 
 I begun by running an nmap scan on the box using the command

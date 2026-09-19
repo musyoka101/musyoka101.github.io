@@ -6,8 +6,6 @@ categories: [webverse, writeup, xxe, deserialization]
 tags: [ctf, web, walkthrough, xxe, php, object-injection, mass-assignment, writeup]
 ---
 
-# Webverse Pro — Remit Walkthrough
-
 Hello guys and welcome back to another walkthrough. This time we'll be tackling Remit from Webverse Pro, a web challenge that turned out to be one of the cleanest exploit chains i've done in a while. The box is a custom PHP accounts-payable platform split into two virtual hosts, a supplier portal called remit.local where vendors upload xlsx invoices and an internal finance review console called review.remit.local. The challenge starts with a blind XXE in the invoice upload that has a weak regex filter which we bypass by encoding the XML as UTF-16LE. The blind XXE gives us out-of-band file read which we use to exfiltrate the whole application source with php://filter and zlib compression. The source reveals a mass assignment bug that lets a supplier promote their own account into a reviewer which opens the review console. The review console stores UI preferences in a cookie that is passed straight into unserialize giving us a PHP object injection. With a POP gadget in the archive class that writes files in its destructor we write a webshell into the web root and get command execution as www-data. From there the flag lives on the internal review container across the docker network and a quick ssh from the compromised container grabs it. Let's jump in.
 
 I begun by running an nmap scan on the box using the command

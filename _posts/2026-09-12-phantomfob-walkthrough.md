@@ -6,8 +6,6 @@ categories: [tryhackme, writeup, canbus, car-hacking]
 tags: [thm, ctf, walkthrough, canbus, car-hacking, socketcand, protocol-reversing]
 ---
 
-# TryHackMe — PhantomFob Walkthrough
-
 Hello guys and welcome back to another walkthrough. This time we'll be tackling PhantomFob from TryHackMe, a car hacking challenge built around a simulated vehicle CAN bus. The target exposes a small web HMI with four fob buttons (lock, horn, arm and disarm the immobiliser), a socketcand CAN bridge and an SSH service with no credentials. The catch is that the challenge asks us to unlock the car, and the fob has no unlock button at all, so the frame has to be forged on the bus. We start by enumerating the HMI, then connect to the CAN bus on port 29536 with python-can and map the traffic. Pressing buttons reveals the fob command frame and after collecting a corpus we find it is protected by a public XOR checksum instead of any kind of secret, which means the nonce byte can be derived instead of guessed. We forge an immobiliser disarm frame to prove the construction, sweep the command byte for the magic unlock value and finally watch the door bit flip and the flag drop on the web dashboard. Let's jump in.
 
 I began by running an nmap scan on the box using the command
