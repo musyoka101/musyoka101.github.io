@@ -835,7 +835,7 @@ int main(void) {
     captured[0] = '\0';
     Java_net_bluelotus_tomorrow_easyandroid_MainActivity_stringFromJNI2(g_env, 0, input);
     printf("[2] native stringFromJNI2(%d) = \"%s\"\n", input, captured);
-    printf("\nFLAG = alictf{%s}\n", captured);
+    printf("\nFLAG = alictf{% raw %}{%s}{% endraw %}\n", captured);
     return 0;
 }
 ```
